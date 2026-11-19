@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#06112c">
+<title>Bible Millionaire — Version 5 Host Controller</title>
+<style>
+:root{--navy:#030a1d;--deep:#071735;--blue:#123b82;--gold:#ffd76b;--gold2:#d89d29;--white:#f7f9ff;--green:#36d38b;--red:#ff586b;--muted:#a8bad8}
+*{box-sizing:border-box}body{margin:0;color:var(--white);font-family:system-ui,-apple-system,sans-serif;background:radial-gradient(ellipse at 50% -15%,#26539b 0,#102b59 32%,var(--deep) 62%,var(--navy) 100%);min-height:100vh}
+header{padding:14px 3vw;border-bottom:1px solid #41618e;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.brand{font-weight:1000;letter-spacing:.1em;color:var(--gold)}
+button,select,input{font:inherit}button{cursor:pointer;color:white}button:disabled{opacity:.4;cursor:not-allowed}
+main{max-width:1400px;margin:auto;padding:20px;display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:20px}
+.panel{border:1px solid #5475a5;border-radius:18px;background:linear-gradient(160deg,#102951,#06142b);padding:18px;box-shadow:0 12px 35px #0004}
+h1,h2{color:var(--gold);margin-top:0}.sub{color:#c9d9f3}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.pill{border:1px solid #6485b4;border-radius:999px;background:#0b2349;padding:7px 12px;color:#d7e4ff;font-weight:800;font-size:13px}
+.btn{border:1px solid #e3b750;background:linear-gradient(180deg,#f5c65c,#b9801e);color:#17243b;border-radius:11px;padding:12px 16px;font-weight:900}.btn.secondary{background:#173a70;color:#fff;border-color:#678bb9}.btn.red{background:#76233b;color:#fff;border-color:#bb5368}
+.answerGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0}.answer{background:#12396f;border:2px solid #5578ad;border-radius:11px;padding:12px;text-align:left;min-height:52px;font-weight:750}.answer.chosen{border-color:var(--gold);background:#765518}.answer.correct{border-color:var(--green);background:#0b603c}.answer.wrong{border-color:var(--red);background:#76233b}.answer.gone{visibility:hidden}
+.ladder{display:flex;flex-direction:column-reverse;gap:4px}.ladder div{display:flex;justify-content:space-between;padding:6px 9px;border-radius:6px;color:#c3d2e9;font-weight:750}.ladder .safe{border:1px solid #b78a36;color:#ffe08a}.ladder .current{background:var(--gold);color:#16213a}
+input[type=number]{width:74px;background:#071632;color:white;border:1px solid #6384b3;border-radius:8px;padding:8px}
+#status{min-height:28px;color:#e2edff;font-weight:700;margin-top:10px}.lifeline{background:#142d56;border:1px solid var(--gold);color:var(--gold);border-radius:9px;padding:9px 12px;font-weight:850}.lifeline.used{text-decoration:line-through;opacity:.4}
+.voteRow{display:flex;align-items:center;gap:8px;margin:8px 0}.voteRow label{width:28px;font-weight:900;color:var(--gold)}.hint{font-size:13px;color:#b8c8e0;line-height:1.45}
+#setup{max-width:850px;margin:30px auto;padding:22px}.hidden{display:none!important}
+@media(max-width:850px){main{grid-template-columns:1fr}.ladder{display:grid;grid-template-columns:repeat(5,1fr)}.ladder div{font-size:12px;justify-content:center}.answerGrid{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){header{justify-content:center}main{padding:10px}.answerGrid{grid-template-columns:1fr}}
+</style>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script></head>
+<body>
+<header><div class="brand">✦ BIBLE MILLIONAIRE — VERSION 5 HOST ✦</div><div class="row"><span class="pill" id="linkState">TV not connected</span><button class="btn" id="openTv">CREATE CONNECTION CODE</button></div></header>
+<section id="setup" class="panel">
+<h1>True Host Mode</h1>
+<p class="sub">Use this iPhone as your private host controller. On your iPad, open the separate Version 5 TV Display file and enter the six-character code.</p>
+<div class="row"><label>Choose a game&nbsp;<select id="gameChoice"><option value="0">Game 1 — Bible Basics</option><option value="1">Game 2 — Adventures & Miracles</option><option value="2">Game 3 — Jesus & the Early Church</option></select></label><button class="btn" id="start">START GAME</button></div>
+<p class="hint">Connect the iPad (not the iPhone) to your TV with HDMI. Both devices must have internet access, and both game pages must stay open. Keep the host controls private on the iPad.</p>
+</section>
+<main id="app" class="hidden">
+<section class="panel">
+<div class="row" style="justify-content:space-between"><span class="pill" id="gameLabel">GAME</span><span class="pill" id="prize">PRIZE: $100</span></div>
+<h2 id="qnum" style="margin-top:20px">QUESTION 1 OF 15</h2>
+<h1 id="question" style="color:white;font-size:clamp(22px,3vw,34px)">Question appears here</h1>
+<div class="answerGrid" id="answers"></div>
+<div class="row">
+<button class="btn" id="lock" disabled>LOCK IN & REVEAL</button>
+<button class="btn secondary" id="next" disabled>NEXT QUESTION</button>
+<button class="btn red" id="restart">NEW GAME</button>
+</div>
+<div id="status"></div>
+<hr style="border-color:#36547e;margin:18px 0">
+<h2>Host lifelines</h2>
+<div class="row" id="lifelines">
+<button class="lifeline" data-life="fifty">50 / 50</button>
+<button class="lifeline" data-life="friend">ASK A FRIEND</button>
+<button class="lifeline" data-life="clue">BIBLE EXPERT CLUE</button>
+<button class="lifeline" data-life="audience">ASK THE AUDIENCE</button>
+</div>
+<div id="lifePanel" class="panel hidden" style="margin-top:14px">
+<h2 id="lifeTitle">Lifeline</h2><div id="lifeContent"></div>
+</div>
+<p class="hint">Correct answer and explanation are visible only on this host screen. Use “Lock in & Reveal” when you are ready to show the result on the TV.</p>
+</section>
+<aside class="panel"><h2 style="text-align:center">MONEY LADDER</h2><div class="ladder" id="ladder"></div><p class="hint">★ Safe levels: $1,000 and $32,000</p><hr style="border-color:#36547e"><h2>Host answer</h2><div id="privateAnswer" class="hint">Not revealed yet.</div></aside>
+</main>
+<script>
+const games = [
+[
+['Who built a huge boat called an ark?',['Moses','Noah','David','Abraham'],1,'God told Noah to build an ark before the flood.','Genesis 6:13–14'],
+['Who was the first man God created?',['Adam','Noah','Joseph','Peter'],0,'God formed Adam from the dust of the ground.','Genesis 2:7'],
+['What did David use to defeat Goliath?',['A sword','A spear','A sling and a stone','A bow and arrow'],2,'David used a sling and a stone and trusted God.','1 Samuel 17:49'],
+['What swallowed Jonah?',['A shark','A whale','A crocodile','A great fish'],3,'The Bible describes it as a great fish.','Jonah 1:17'],
+['In which town was Jesus born?',['Jerusalem','Bethlehem','Nazareth','Rome'],1,'Jesus was born in Bethlehem.','Matthew 2:1'],
+['Who led the Israelites out of slavery in Egypt?',['David','Moses','Solomon','Joshua'],1,'God called Moses to lead the people out of Egypt.','Exodus 3:10'],
+['Who was thrown into a den of lions and protected by God?',['Daniel','Joseph','Elijah','Peter'],0,'God sent an angel to shut the lions’ mouths.','Daniel 6:16–22'],
+['How many disciples did Jesus choose?',['7','10','12','15'],2,'Jesus chose twelve apostles.','Luke 6:13'],
+['In the lost-sheep parable, how many sheep did the shepherd leave to find the one that was lost?',['10','50','90','99'],3,'The shepherd left ninety-nine to look for the one.','Luke 15:4'],
+['In Jesus’ parable, who stopped to help the injured man?',['A king','A priest','A Samaritan','A soldier'],2,'The Samaritan showed mercy and cared for the injured man.','Luke 10:30–37'],
+['What kind of tree did Zacchaeus climb to see Jesus?',['An oak','A palm','A sycamore-fig tree','An olive'],2,'Zacchaeus climbed a sycamore-fig tree because he was short.','Luke 19:1–4'],
+['Which disciple stepped out of the boat and walked on the water toward Jesus?',['John','Peter','Thomas','Andrew'],1,'Peter walked toward Jesus, but began to sink when afraid.','Matthew 14:28–29'],
+['What was Paul called before he became known as Paul?',['Simon','Saul','Samuel','Stephen'],1,'Saul was also called Paul.','Acts 13:9'],
+['Jesus fed the five thousand with which food?',['3 loaves and 3 fish','5 loaves and 2 fish','7 loaves and 5 fish','2 loaves and 5 fish'],1,'A boy had five barley loaves and two fish.','John 6:9–13'],
+['On which day did Jesus rise from the dead?',['The same day','The second day','The third day','The seventh day'],2,'Jesus rose on the third day.','Luke 24:6–7']
+],
+[
+['What sign did God put in the sky after the flood as a promise?',['A star','A rainbow','A dove-shaped cloud','A bright sun'],1,'The rainbow was a sign of God’s covenant.','Genesis 9:12–16'],
+['Who was sold by his brothers and taken to Egypt?',['Benjamin','Joseph','Isaac','Aaron'],1,'Joseph’s brothers sold him to traders going to Egypt.','Genesis 37:28'],
+['What food did God provide for the Israelites in the wilderness?',['Manna','Pizza','Grapes only','Fish every morning'],0,'The people called the bread-like food manna.','Exodus 16:14–15'],
+['What sea did God make a path through for the Israelites?',['The Dead Sea','The Red Sea','The Sea of Galilee','The Mediterranean Sea'],1,'God made the waters of the Red Sea divide.','Exodus 14:21–22'],
+['Who was the strong man whose hair was cut while he slept?',['Gideon','Samson','Saul','Jonathan'],1,'Samson told Delilah his strength was connected to his uncut hair.','Judges 16:17–19'],
+['What did young Samuel hear God calling at night?',['His name','A trumpet','A loud storm','A song'],0,'Samuel heard his name and learned to answer, “Speak, Lord.”','1 Samuel 3:4–10'],
+['Which prophet challenged the prophets of Baal on Mount Carmel?',['Elijah','Jonah','Isaiah','Jeremiah'],0,'God answered Elijah with fire from heaven.','1 Kings 18:20–39'],
+['Who was the queen who bravely approached the king to help save her people?',['Ruth','Esther','Mary','Deborah'],1,'Esther risked her life to speak up for her people.','Esther 5:1–3; 7:3–4'],
+['What happened when the walls of Jericho were surrounded and the people shouted?',['They turned to gold','They fell down','They caught fire','They vanished underground'],1,'The walls fell after the people shouted and trumpets sounded.','Joshua 6:20'],
+['What did Jesus turn water into at a wedding?',['Milk','Oil','Wine','Honey'],2,'Jesus turned water into wine at Cana.','John 2:1–11'],
+['How many days and nights did Jesus fast in the wilderness?',['7','12','30','40'],3,'Jesus fasted for forty days and forty nights.','Matthew 4:1–2'],
+['What did Jesus calm when his disciples were afraid in a boat?',['An earthquake','A storm','A fire','A sandstorm'],1,'Jesus told the wind and waves to be still.','Mark 4:35–41'],
+['Who was raised from the dead after being in the tomb for four days?',['Lazarus','Jairus','Stephen','John the Baptist'],0,'Jesus called Lazarus out of the tomb.','John 11:38–44'],
+['What descended like a dove when Jesus was baptized?',['A rainbow','The Spirit of God','A scroll','A star'],1,'The Spirit of God descended like a dove.','Matthew 3:16–17'],
+['What happened when an angel helped Peter escape from prison?',['He became invisible','His chains fell off and the gate opened','He flew over the city','He walked through a wall'],1,'Peter’s chains fell away and the iron gate opened.','Acts 12:6–10']
+],
+[
+['What was the name of Jesus’ mother?',['Martha','Mary','Elizabeth','Anna'],1,'The angel told Mary she would give birth to Jesus.','Luke 1:30–31'],
+['Who baptized Jesus?',['Peter','John the Baptist','Paul','Andrew'],1,'John baptized Jesus in the Jordan River.','Matthew 3:13–17'],
+['What was Jesus’ first miracle recorded in John’s Gospel?',['Healing a blind man','Walking on water','Turning water into wine','Feeding five thousand'],2,'Jesus turned water into wine at a wedding in Cana.','John 2:1–11'],
+['Which prayer did Jesus teach his disciples?',['The Lord’s Prayer','Prayer of Jabez','Song of Moses','Prayer of Hannah'],0,'Jesus taught them a prayer beginning “Our Father”.','Matthew 6:9–13'],
+['What did Jesus ride into Jerusalem before his crucifixion?',['A horse','A donkey','A chariot','A camel'],1,'Jesus rode on a donkey into Jerusalem.','Matthew 21:1–9'],
+['Which disciple doubted that Jesus had risen until he saw Jesus?',['Thomas','James','Matthew','Philip'],0,'Thomas wanted to see Jesus’ wounds before believing.','John 20:24–29'],
+['What did Jesus say is the greatest commandment?',['Build a temple','Love God with all your heart','Never travel','Become a king'],1,'Love the Lord your God with all your heart, soul and mind.','Matthew 22:36–38'],
+['Who climbed a tree to see Jesus?',['Nicodemus','Zacchaeus','Bartimaeus','Cornelius'],1,'Zacchaeus climbed a sycamore-fig tree.','Luke 19:1–4'],
+['What was the name of the garden where Jesus prayed before he was arrested?',['Eden','Gethsemane','Bethany','Carmel'],1,'Jesus went with his disciples to Gethsemane.','Matthew 26:36'],
+['Who denied knowing Jesus three times?',['Judas','Peter','John','James'],1,'Peter denied Jesus three times before the rooster crowed.','Luke 22:54–62'],
+['Who betrayed Jesus for thirty pieces of silver?',['Judas Iscariot','Pontius Pilate','Thomas','Barabbas'],0,'Judas agreed to hand Jesus over.','Matthew 26:14–16'],
+['What happened to Jesus’ followers at Pentecost?',['They received the Holy Spirit','They built an ark','They crossed the Red Sea','They became fishermen'],0,'The Holy Spirit came upon the believers.','Acts 2:1–4'],
+['Who was the first Christian martyr described in Acts?',['Stephen','Barnabas','Timothy','Luke'],0,'Stephen was killed because of his faith in Jesus.','Acts 7:54–60'],
+['On which road did Saul encounter Jesus?',['Road to Jericho','Road to Emmaus','Road to Damascus','Road to Bethlehem'],2,'Saul encountered Jesus on the road to Damascus.','Acts 9:1–6'],
+['According to 1 Corinthians 13, which is greatest of faith, hope and love?',['Faith','Hope','Love','They are all called greatest'],2,'Paul says the greatest of these is love.','1 Corinthians 13:13']
+]
+];
+const prizes=[100,200,300,500,1000,2000,4000,8000,16000,32000,64000,125000,250000,500000,1000000];
+const gameNames=['GAME 1 — BIBLE BASICS','GAME 2 — ADVENTURES & MIRACLES','GAME 3 — JESUS & THE EARLY CHURCH'];
+let peer=null,connection=null,game=0,q=0,selected=null,revealed=false,hidden=[],used={},votes=[0,0,0,0],lastSafe=0;
+const $=id=>document.getElementById(id);
+function send(type,extra={}){if(connection&&connection.open)connection.send({type,...extra})}
+function snapshot(){let item=games[game][q];return {gameName:gameNames[game],q:q+1,total:15,prize:prizes[q],question:item[0],options:item[1],selected,revealed,correct:revealed?item[2]:null,hidden:[...hidden],message:revealed?(selected===item[2]?'CORRECT!':'NOT QUITE!'):'' ,explanation:revealed?item[3]+' ('+item[4]+')':'',ladder:prizes.map((p,i)=>({prize:p,index:i,current:i===q,safe:i===4||i===9})) ,audience:window.lastAudience||null};}
+function sync(){send('STATE',{state:snapshot()})}
+function openTV(){
+ if(peer){$('linkState').textContent='Code: '+peer.id.split('-').pop();return}
+ if(typeof Peer==='undefined'){alert('The connection library did not load. Check your internet and reload.');return}
+ const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=Array.from(crypto.getRandomValues(new Uint8Array(6)),x=>alphabet[x%alphabet.length]).join('');
+ $('linkState').textContent='Connecting…';
+ peer=new Peer('biblemillionaire5-'+code);
+ peer.on('open',()=>{$('linkState').textContent='CODE: '+code;alert('On your iPad, visit this website and choose TV Display, then enter code: '+code)});
+ peer.on('connection',c=>{
+  if(connection&&connection.open)connection.close();
+  connection=c;
+  c.on('open',()=>{$('linkState').textContent='TV CONNECTED • '+code;sync()});
+  c.on('data',d=>{if(d&&d.type==='TV_READY')sync()});
+  c.on('close',()=>{$('linkState').textContent='TV disconnected • '+code;connection=null});
+ });
+ peer.on('error',e=>{$('linkState').textContent='Connection error';alert('Connection error: '+e.type+'. Reload and create a new code.')});
+}
+$('openTv').onclick=openTV;
+$('start').onclick=()=>{game=+$('gameChoice').value;q=0;selected=null;revealed=false;hidden=[];used={fifty:false,friend:false,clue:false,audience:false};lastSafe=0;$('setup').classList.add('hidden');$('app').classList.remove('hidden');renderHost();sync()};
+function renderHost(){window.lastAudience=null;let item=games[game][q];selected=null;revealed=false;hidden=[];$('gameLabel')?.remove();$('qnum').textContent='QUESTION '+(q+1)+' OF 15';$('prize').textContent='PRIZE: $'+prizes[q].toLocaleString();$('question').textContent=item[0];$('answers').innerHTML='';item[1].forEach((v,i)=>{let b=document.createElement('button');b.className='answer';b.textContent='ABCD'[i]+'. '+v;b.onclick=()=>choose(i);b.dataset.i=i;$('answers').appendChild(b)});$('status').textContent='Choose the contestant’s answer, then lock it in when ready.';$('privateAnswer').textContent='Correct answer is hidden until you reveal.';$('lock').disabled=true;$('next').disabled=true;document.querySelectorAll('.lifeline').forEach(b=>{b.classList.toggle('used',!!used[b.dataset.life]);b.disabled=!!used[b.dataset.life]});drawLadder();sync()}
+function choose(i){if(revealed||hidden.includes(i))return;selected=i;document.querySelectorAll('.answer').forEach((b,j)=>b.classList.toggle('chosen',j===i));$('lock').disabled=false;$('status').textContent='Selected '+ 'ABCD'[i]+'. Ready to lock in?';sync()}
+$('lock').onclick=()=>{if(selected===null||revealed)return;revealed=true;let item=games[game][q],correct=item[2],ok=selected===correct;document.querySelectorAll('.answer').forEach((b,i)=>{b.classList.remove('chosen');if(i===correct)b.classList.add('correct');else if(i===selected)b.classList.add('wrong')});$('privateAnswer').innerHTML='<b style="color:#ffd76b">Correct: '+ 'ABCD'[correct]+' — '+item[1][correct]+'</b><br>'+item[3]+'<br><i>'+item[4]+'</i>';$('status').textContent=ok?'CORRECT! The contestant moves up the ladder.':'NOT QUITE. Correct answer: '+ 'ABCD'[correct]+'.';$('lock').disabled=true;$('next').disabled=false;$('next').textContent= q===14?'FINISH GAME':(ok?'NEXT QUESTION':'END GAME');sync()};
+$('next').onclick=()=>{if(!revealed)return;let ok=selected===games[game][q][2];if(!ok||q===14){$('status').textContent=ok?'🎉 MILLIONAIRE! All 15 answers correct!':'Game finished. Safe prize: $'+(q>=9?32000:q>=4?1000:0).toLocaleString();$('next').disabled=true;return}q++;renderHost()};
+$('restart').onclick=()=>{if(confirm('Start a new game? Current progress will be lost.')){$('app').classList.add('hidden');$('setup').classList.remove('hidden');sync()}};
+function drawLadder(){$('ladder').innerHTML='';prizes.forEach((p,i)=>{let d=document.createElement('div');d.textContent=(i+1)+'. $'+p.toLocaleString();if(i===4||i===9)d.classList.add('safe');if(i===q)d.classList.add('current');$('ladder').appendChild(d)})}
+function markLife(id){used[id]=true;document.querySelector('[data-life="'+id+'"]').disabled=true;document.querySelector('[data-life="'+id+'"]').classList.add('used')}
+document.querySelectorAll('.lifeline').forEach(b=>b.onclick=()=>life(b.dataset.life));
+function life(id){if(used[id]||revealed)return;let item=games[game][q];$('lifePanel').classList.remove('hidden');$('lifeTitle').textContent=({fifty:'50 / 50',friend:'ASK A FRIEND',clue:'BIBLE EXPERT CLUE',audience:'ASK THE AUDIENCE'})[id];let c=$('lifeContent');
+ if(id==='fifty'){let wrong=[0,1,2,3].filter(i=>i!==item[2]);hidden=wrong.slice(0,2);c.textContent='Two incorrect options removed on the TV screen.';markLife(id);sync()}
+ if(id==='friend'){c.textContent='Invite another boy to suggest an answer. The contestant makes the final choice.';markLife(id)}
+ if(id==='clue'){c.textContent=item[3];markLife(id)}
+ if(id==='audience'){c.innerHTML='<p class="hint">Count raised hands for each option and enter the totals. Then reveal the poll on the TV.</p>';['A','B','C','D'].forEach((letter,i)=>{let r=document.createElement('div');r.className='voteRow';r.innerHTML='<label>'+letter+'</label><span style="flex:1">'+item[1][i]+'</span>';let inp=document.createElement('input');inp.type='number';inp.min='0';inp.value='0';inp.id='vote'+i;r.appendChild(inp);c.appendChild(r)});let btn=document.createElement('button');btn.className='btn';btn.textContent='SHOW AUDIENCE RESULTS ON TV';btn.onclick=()=>{votes=[0,1,2,3].map(i=>Math.max(0,parseInt($('vote'+i).value||'0',10)));let total=votes.reduce((a,b)=>a+b,0);if(!total){alert('Enter at least one audience vote.');return}window.lastAudience=votes.map(v=>Math.round(v/total*100));markLife(id);sync();$('status').textContent='Audience poll displayed on TV.'};c.appendChild(btn)}
+}
+</script></body></html>
